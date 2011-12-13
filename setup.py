@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 version = '20111209.01'
 
 setup(
-    name='sc.templer.theme',
+    name='sc.templer.buildout',
     version=version,
     description="Base templer structures for Simples Consultoria.",
     long_description=open("README.rst").read() + "\n" +
