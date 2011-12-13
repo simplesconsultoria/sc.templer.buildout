@@ -1,0 +1,211 @@
+director all random{
+    {    
+    .backend = {.host = "127.0.0.1";.port = "8080";}
+    .weight = 1;
+    }
+}
+
+acl purge {
+       "localhost";
+}
+
+sub vcl_recv {
+    set req.grace = 120s;
+
+    if (req.http.host ~ "^(www.)?foo\.bar\.br(:[0-9]+)?\$") {
+            set req.http.host = "$url";
+    } else {
+        error 404 "Unknown virtual host";
+    }
+
+    set req.backend = servicos;
+    set req.url = "/VirtualHostBase/http/$url:80/site/VirtualHostRoot" req.url;
+        
+    if (req.request == "PURGE") {
+        if (!client.ip ~ purge) {
+            error 405 "Not allowed.";
+        } else {
+            purge("req.url == " req.url);
+        }
+    }
+
+    /* Remove cookie do analytics */
+    set req.http.cookie = regsuball( req.http.cookie, "__utm.=[^;]+(; )?", "" ); 
+    set req.http.cookie = regsub(req.http.cookie, "; \$", ""); 
+    if (req.http.cookie ~ "^ *\$") { 
+        remove req.http.cookie;
+    }
+    
+    if (req.request != "GET" && req.request != "HEAD") {
+        return(pass);
+    }
+    
+    if (req.url ~ "createObject") {
+        return(pass);
+    }
+    if (req.http.Accept-Encoding) {
+        unset req.http.Accept-Encoding;
+    }
+    
+    if (req.url ~ "^/(portal_javascripts|portal_css|portal_kss)/") {
+        remove req.http.cookie;
+        return(lookup);
+    }
+   
+    if (req.url ~ "^/.*/resolveuid/?"){
+        remove req.http.cookie;
+        return(lookup);
+    }
+
+    if (req.request == "GET" && req.url ~ "\.(png|gif|jpg|swf|css|js|ico|pdf|htc)\$") {
+        remove req.http.cookie;
+        return(lookup);
+    }
+
+    if (req.request == "GET" && req.url ~ "(rss|RSS|atom\.xml)") {
+        return(lookup);
+    }
+   
+    /* We only care about the "__ac.*" cookies, used for authentication */
+    /* Adicionado cookie relativo ao MoinMoin */
+    if (req.http.Cookie && (req.http.Cookie ~ "__ac(_(name|password|persistent))?=" || req.http.Cookie ~ "_ZopeId" )) {
+        return(pass);
+    }
+   
+    # Cache images
+    if (req.request == "GET" && req.url ~ "\/image_?(thumb|preview|large|icon|mini|tile|cover)?\$") {
+        remove req.http.cookie;
+        return(lookup);
+    }
+   
+    if (req.http.Expect) {
+        return(pipe);
+    }
+
+    if (req.http.If-None-Match) {
+        return(pass);
+    }
+
+    /* Do not cache other authorized content */
+    if (req.http.Authenticate || req.http.Authorization) {
+        return(pass);
+    }
+    return(lookup);
+}
+
+/* Deal with purge requests */
+sub vcl_hit {
+    if (req.request == "PURGE") {
+            set obj.ttl = 0s;
+            error 200 "Purged";
+    }
+}
+
+sub vcl_miss {
+    if (req.http.If-Modified-Since) {
+        return(pass);
+    }
+
+    if (req.request == "PURGE") {
+            error 404 "Not in cache";
+    }
+}
+
+sub vcl_fetch {
+    # Cache de erros 404 
+    if (beresp.status == 404){
+       set beresp.http.X-Tangrama = "404 error";
+       set beresp.ttl = 36000s;
+       return(deliver);
+    }
+   if (req.url ~ "\/404/?\$") {
+       unset beresp.http.set-cookie;
+       set beresp.http.X-Tangrama = "404";
+       set beresp.http.cache-control = "max-age = 360000";
+       set beresp.ttl = 360000s;
+       return(deliver);
+    }
+    
+    if (beresp.status >= 500) { 
+       set beresp.http.X-MSG = "erro";
+       set beresp.ttl = 0s; 
+       return(deliver);
+    }
+     
+    if (req.url ~ "^/.*/resolveuid/?"){
+       unset beresp.http.set-cookie;
+       set beresp.http.X-Tangrama = "ResolveUID";
+       if (!beresp.http.cache-control){
+         set beresp.http.cache-control = "max-age = 36000";
+         set beresp.ttl = 36000s;
+       }
+       return(deliver);
+    }
+
+    if (req.url ~ "^/(portal_javascripts|portal_css|portal_kss)/"){
+       unset beresp.http.set-cookie;
+       set beresp.http.X-Tangrama = "resources";
+       if (!beresp.http.cache-control){
+         set beresp.http.cache-control = "max-age = 36000";
+         set beresp.ttl = 36000s;
+       }
+       return(deliver);
+    }
+    
+    if (req.url ~ "\.(png|gif|jpg|swf|css|js|ico|pdf|htc)\$") {
+       unset beresp.http.set-cookie;
+       set beresp.http.X-Tangrama = "resources";
+       if (!beresp.http.cache-control){
+         set beresp.http.cache-control = "max-age = 36000";
+         set beresp.ttl = 36000s;
+       }
+       return(deliver);
+    }
+   
+    # Imagens de conteudo do plone
+    if (req.url ~ "\/image_?(thumb|preview|large|icon|mini|tile)?\$") {
+        set beresp.http.X-Tangrama = "imagem_conteudo";
+        unset beresp.http.set-cookie;
+    }
+   
+    if (req.url ~ "(rss_|search_rss|RSS|atom\.xml)") {
+        set beresp.http.X-Tangrama = "feed";
+        unset beresp.http.set-cookie;
+        set beresp.ttl = 1800s;
+        return(deliver);
+    }
+
+    if (!beresp.cacheable) {
+        return(pass);
+    }
+
+    if (beresp.http.Set-Cookie) {
+        return(pass);
+    }
+}
+
+sub vcl_hash {
+    set req.hash += req.url;
+    set req.hash += req.http.host;
+    return(hash);
+}
+
+sub vcl_deliver {
+  if (obj.hits > 0) {
+    set resp.http.X-Cache = "HIT";
+    set resp.http.X-Cache-Hits = obj.hits;
+  } else {
+    set resp.http.X-Cache = "MISS";
+  }
+  call rewrite_age;
+  return(deliver);
+}
+
+# The varnish response should always declare itself to be fresh
+sub rewrite_age {
+    if (resp.http.Age) {
+        set resp.http.X-Varnish-Age = resp.http.Age;
+        set resp.http.Age = "0";
+    }
+}
+

@@ -1,0 +1,35 @@
+server {
+    listen 80;
+    client_max_body_size 100M;
+    server_name $url
+                localhost;
+
+    location /static {
+      alias  /usr/local/varnish/var/www/theme;
+      expires                 30d;
+      add_header              Cache-Control public;
+      access_log              off;
+      allow all;
+    }
+
+    location /nginx_status {
+      stub_status on;
+      access_log   off;
+      allow 127.0.0.1;
+      deny all;
+    }
+    
+    location /status {
+      access_log   off;
+      root  /usr/local/varnish/var/www/;
+      allow 127.0.0.1;
+      deny all;
+    }
+
+    location / {
+            proxy_pass http://paste;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header Host \$http_host;
+            proxy_pass_header Set-Cookie;
+    }
+}

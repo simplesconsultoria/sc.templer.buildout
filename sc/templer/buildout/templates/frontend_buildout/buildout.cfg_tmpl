@@ -1,0 +1,175 @@
+[buildout]
+parts =
+        nginx-build
+        varnish-build
+        varnish
+        nginx
+        lxml
+        server
+        supervisor
+        logrotate
+        logrotate-daily
+        varnish-stats
+
+find-links = https://simplesnet.com.br/pacotes/catalogo/simple
+
+extends = http://good-py.appspot.com/release/diazo/1.0rc3
+
+[hosts]
+nginx = 0.0.0.0
+paste = 127.0.0.1
+varnish-bind = 127.0.0.1
+varnish-telnet = 127.0.0.1
+
+[ports]
+nginx-bind = 80
+paste = 5000
+varnish-bind = 8000
+varnish-telnet = 9003
+
+[users]
+effective-user = apache
+
+[downloads]
+varnish = http://repo.varnish-cache.org/source/varnish-2.1.5.tar.gz
+nginx = http://nginx.org/download/nginx-1.0.10.tar.gz
+
+[supervisor-settings]
+user = \${users:effective-user}
+password = 4dm1n\${users:effective-user}
+
+[varnish-build]
+recipe = hexagonit.recipe.cmmi
+url = \${downloads:varnish}
+ignore-existing = true
+
+[varnish]
+recipe = plone.recipe.varnish:instance
+config = \${buildout:directory}/etc/varnish/varnish.vcl
+cache-size = 2Gb
+daemon = \${buildout:parts-directory}/varnish-build/sbin/varnishd
+bind = \${hosts:varnish-bind}:\${ports:varnish-bind}
+telnet = \${hosts:varnish-telnet}:\${ports:varnish-telnet}
+
+[nginx-build]
+recipe = hexagonit.recipe.cmmi
+url = \${downloads:nginx}
+ignore-existing = true
+configure-options = --with-http_gzip_static_module --with-http_stub_status_module
+
+[nginx]
+recipe = gocept.nginx
+nginx = nginx-build
+configuration =
+    user \${users:effective-user};
+    error_log \${buildout:directory}/var/log/main-error.log warn;
+    worker_processes 4;
+    daemon off;
+    master_process  off;
+    events {
+        worker_connections 1024;
+    }
+    
+    http {
+        # Proxy to Varnish cache
+        upstream varnish {
+            server \${hosts:varnish-bind}:\${ports:varnish-bind};
+        }
+
+        upstream paste {
+            server \${hosts:paste}:\${ports:paste};
+        }
+
+        client_max_body_size 40M;
+        
+        # Sets buffer to proxy connections
+        proxy_buffers 8 256k;
+        proxy_buffer_size 256k;
+        
+        sendfile        on;
+        tcp_nopush on;
+        
+        # Gzip
+        gzip              on;
+        gzip_buffers      16 8k;
+        gzip_comp_level   9;
+        gzip_http_version 1.0;
+        gzip_proxied any;
+        gzip_min_length   1000;
+        gzip_types text/plain text/css application/json application/x-javascript text/xml application/xml application/xml+rss text/javascript image/x-icon image/bmp image/png image/gif image/jpg image/jpeg;
+        gzip_vary         on;
+        gzip_disable     "MSIE [1-6]\.";
+        
+        # Error pages
+        error_page 500 502 503 504  /500.html;
+        
+        # Document Root
+        root  \${buildout:directory}/var/www/;
+        
+        # Avoind 'friendly' error messagens in IE
+        msie_padding on;
+        
+        # If (off), Plone will handle error messages instead of nginx
+        proxy_intercept_errors off; 
+
+        # Log
+        log_format main '\$remote_addr - \$remote_user [\$time_local]'
+          '"\$request" \$status \$bytes_sent '
+          '"\$http_referer" "\$http_user_agent" '
+          '"\$gzip_ratio" "\$http_host" \$upstream_response_time';
+        
+        access_log \${buildout:directory}/var/log/access.log main;
+        
+        include \${buildout:directory}/parts/nginx-build/conf/mime.types;
+        
+        include \${buildout:directory}/etc/vhosts/*.conf;
+        
+    }
+
+
+[lxml]
+recipe = z3c.recipe.staticlxml
+egg = lxml
+libxml2-url = http://xmlsoft.org/sources/libxml2-2.7.6.tar.gz
+libxslt-url = http://xmlsoft.org/sources/libxslt-1.1.26.tar.gz
+
+[server]
+recipe = zc.recipe.egg
+eggs =
+      lxml
+      PasteScript
+      cherrypy
+      diazo [wsgi]
+      sc.s17.pasteproxy
+      sc.s17.loginform
+      
+interpreter = py
+
+[supervisor]
+recipe = collective.recipe.supervisor
+plugins =
+      superlance
+port = 127.0.0.1:9001
+user = admin
+password = 4dm1n
+programs =
+      50 nginx (autostart=true startsecs=3) \${nginx-build:location}/sbin/nginx [-c \${buildout:directory}/parts/nginx/nginx.conf]
+      40 varnish (autostart=true startsecs=3) \${buildout:directory}/bin/varnish [-F] true 
+      30 paster (autostart=true startsecs=3) \${buildout:directory}/bin/paster [serve \${buildout:directory}/proxy.ini --reload] true
+
+eventlisteners =
+
+[logrotate]
+recipe = collective.recipe.template
+input = templates/logrotate.conf.tmpl
+output = etc/logrotate.conf
+
+[logrotate-daily]
+recipe = z3c.recipe.usercrontab
+times = 0 6 * * *
+command = /usr/sbin/logrotate --state \${buildout:directory}/var/logrotate.status \${buildout:directory}/\${logrotate:output}
+
+[varnish-stats]
+recipe = z3c.recipe.usercrontab
+times = */2 * * * *
+command = \${buildout:directory}/bin/varnishstat -1 > \${buildout:directory}/var/www/status/varnish.txt

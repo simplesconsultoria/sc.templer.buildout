@@ -1,0 +1,108 @@
+[buildout]
+extends =
+    base.cfg
+
+parts +=
+    zhw
+    instance1
+    instance2
+    zeoserver
+    backup
+    backup-daily
+    backup-weekly
+    logrotate
+    logrotate-daily
+    supervisor
+    supervisor-cron
+
+overwrite-picked-versions-file = true
+
+develop =
+
+[users]
+os = plone
+
+[zhw]
+recipe = zc.recipe.egg
+eggs = ZopeHealthWatcher
+scripts = zope_health_watcher
+
+[instance]
+recipe = plone.recipe.zope2instance
+http-address = \${hosts:instance}:\${ports:instance}
+zodb-cache-size = 55000
+debug-mode = off
+zserver-threads = 2
+zeo-client = true
+zeo-address = \${zeoserver:zeo-address}
+blob-storage = \${zeoserver:blob-storage}
+shared-blob = on
+effective-user = \${users:os}
+
+[instance1]
+<=instance
+port-base = 1
+
+[instance2]
+<=instance
+port-base = 2
+
+[supervisor]
+recipe = collective.recipe.supervisor
+plugins =
+       supervisor>2.1
+       superlance
+port = \${ports:supervisor}
+user = \${supervisor-settings:user}
+password = \${supervisor-settings:password}
+serverurl = http://\${hosts:supervisor}:\${ports:supervisor}
+programs =
+    10 zeo        (autostart=true  startsecs=10)  \${zeoserver:location}/bin/runzeo                   true  \${users:zope}
+    20 instance1  (autostart=true  startsecs=30)  \${buildout:directory}/bin/instance1 [console] \${instance1:location} true  \${users:zope}
+    20 instance2  (autostart=true  startsecs=30)  \${buildout:directory}/bin/instance2 [console] \${instance2:location} true  \${users:zope}
+
+eventlisteners =
+    Memmon        TICK_60   \${buildout:directory}/bin/memmon [-p instance1=1200MB -p instance2=1200MB -m web@trt13.jus.br]
+
+logfile = \${buildout:directory}/var/log/supervisord.log
+logfile_maxbytes = 5MB
+logfile_backups = 10
+loglevel = info
+pidfile = \${buildout:directory}/var/supervisord.pid
+nodaemon = false
+
+[zeoserver]
+recipe = plone.recipe.zeoserver
+zeo-address = \${hosts:zeoserver}:\${ports:zeoserver}
+monitor-address =  \${hosts:zeoserver}:\${ports:zeoserver-monitor}
+blob-storage = var/blobstorage
+eggs = plone.app.blob
+
+[backup]
+recipe = collective.recipe.backup
+
+[backup-daily]
+recipe = z3c.recipe.usercrontab
+times = 0 3 * * 0-6
+command = \${buildout:directory}/bin/backup
+
+[backup-weekly]
+recipe = z3c.recipe.usercrontab
+times = 0 3 * * 7
+command = \${buildout:directory}/bin/zeopack -p \${ports:zeoserver} -d 1 && \${buildout:directory}/bin/backup
+
+[logrotate]
+recipe = collective.recipe.template
+input = etc/logrotate.conf.tmpl
+output = etc/logrotate.conf
+
+[logrotate-daily]
+recipe = z3c.recipe.usercrontab
+times = 0 6 * * *
+command = /usr/sbin/logrotate --state \${buildout:directory}/var/logrotate.status \${buildout:directory}/\${logrotate:output}
+
+[supervisor-cron]
+recipe = z3c.recipe.usercrontab
+times = @reboot 
+command = \${buildout:directory}/bin/supervisord
+

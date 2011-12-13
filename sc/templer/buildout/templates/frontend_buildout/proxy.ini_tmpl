@@ -1,0 +1,55 @@
+[server:main]
+use = egg:PasteScript#cherrypy
+host = 127.0.0.1
+port = 5000
+numthreads = 10
+timeout = 180
+request_queue_size = 200
+
+
+[composite:main]
+use = egg:Paste#urlmap
+/static = static
+/login_form = login
+/logout = login
+/login = login
+/ = default
+
+[filter:who]
+use = egg:repoze.who#config
+config_file = %(here)s/etc/who/who.ini
+
+[filter:theme]
+use = egg:diazo
+rules = %(here)s/var/www/theme/rules.xml
+prefix = /static
+debug = false
+read_network = true
+
+# Serve the theme from disk from /static (as set up in [composite:main])
+[app:static]
+use = egg:Paste#static
+document_root = %(here)s/var/www/theme
+
+# Serve the Diazo-transformed content everywhere else
+[pipeline:default]
+pipeline = 
+           who
+           theme
+           plone
+
+# Serving using Varnish
+[app:plone]
+use = egg:sc.s17.pasteproxy#proxy
+address = http://localhost:8000/
+suppress_http_headers = accept-encoding
+remote_user_header = HTTP_X_REMOTE_USER
+
+[pipeline:login]
+pipeline = 
+           who
+           theme
+           login_form
+
+[app:login_form]
+use = egg:sc.s17.loginform

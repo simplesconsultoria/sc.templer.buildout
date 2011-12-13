@@ -1,0 +1,34 @@
+[buildout]
+parts += 
+         fixencode
+         xmltest
+         coverage
+         report
+         potcompile
+
+extends =
+    desenvolvimento.cfg
+
+[xmltest]
+recipe = collective.xmltestreport
+eggs =
+    \${test:eggs}
+script = xmltest
+defaults = ['--auto-color', '--auto-progress', '--xml']
+
+[coverage]
+recipe = zc.recipe.egg
+eggs = coverage
+initialization = 
+	include = '--source=\${buildout:directory}/src' 
+	sys.argv = sys.argv[:] + ['run', include, 'bin/xmltest', '-k', '-q','--all']
+
+[report]
+recipe = zc.recipe.egg
+eggs = coverage
+scripts = coverage=report
+initialization =
+    eggs = '\${buildout:eggs-directory}'
+    bin = '\${buildout:directory}/bin'
+    exclude = '--omit=' + ','.join([eggs,sys.prefix, bin])
+    sys.argv = sys.argv[:] + ['xml', '-i', exclude]

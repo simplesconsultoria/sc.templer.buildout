@@ -1,0 +1,50 @@
+[plugin:formcookie]
+use = repoze.who.plugins.formcookie:make_redirecting_plugin
+login_form_path = /login_form
+login_handler_path = /login
+logout_handler_path = /logout
+rememberer_name = cookie
+force_https = true
+login_redirect_method = /
+logout_redirect_method = /
+username_field = username
+password_field = password
+
+[plugin:auth_tkt]
+# identification and authentication
+use = repoze.who.plugins.auth_tkt:make_plugin
+secret = $seed
+cookie_name = change_me
+secure = False
+include_ip = False
+
+[plugin:basicauth]
+# identification and challenge
+use = repoze.who.plugins.basicauth:make_plugin
+realm = 'Simples Consultoria'
+
+[general]
+request_classifier = repoze.who.classifiers:default_request_classifier
+challenge_decider = repoze.who.classifiers:default_challenge_decider
+remote_user_key = REMOTE_USER
+
+[identifiers]
+# plugin_name;classifier_name:.. or just plugin_name (good for any)
+plugins =
+        auth_tkt
+        basicauth
+
+[authenticators]
+# plugin_name;classifier_name.. or just plugin_name (good for any)
+plugins =
+        auth_tkt
+        
+
+[challengers]
+# plugin_name;classifier_name:.. or just plugin_name (good for any)
+plugins =
+        formcookie;browser
+        basicauth
+
+[mdproviders]
+plugins =
