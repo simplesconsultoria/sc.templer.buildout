@@ -18,7 +18,7 @@ class Buildout(BaseTemplate):
     summary = "Create a simple buildout"
     help = """This template allows you to create a buildout"""
 
-    category = "Simples Consultoria"
+    category = "Simples Consultoria - Buildout"
 
     use_cheetah = True
 
