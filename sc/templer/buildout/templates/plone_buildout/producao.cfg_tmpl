@@ -62,7 +62,7 @@ programs =
     20 instance2  (autostart=true  startsecs=30)  \${buildout:directory}/bin/instance2 [console] \${instance2:location} true  \${users:zope}
 
 eventlisteners =
-    Memmon        TICK_60   \${buildout:directory}/bin/memmon [-p instance1=1200MB -p instance2=1200MB -m web@trt13.jus.br]
+    Memmon        TICK_60   \${buildout:directory}/bin/memmon [-p instance1=1200MB -p instance2=1200MB -m web@company.com]
 
 logfile = \${buildout:directory}/var/log/supervisord.log
 logfile_maxbytes = 5MB
