@@ -7,25 +7,18 @@ parts +=
     i18ndude
     omelette
     test
-    zopepy
 
 extensions +=
     mr.developer
     buildout.dumppickedversions
 
-overwrite-picked-versions-file = True
-
 sources = sources
 auto-checkout = *
 
 eggs +=
-    Products.DocFinderTab
 #    Products.PDBDebugMode
+#    Products.FSDump
     Products.PrintingMailHost
-    zope.testrecorder
-
-zcml +=
-    zope.testrecorder
 
 [i18ndude]
 unzip = true
@@ -33,8 +26,6 @@ recipe = zc.recipe.egg
 eggs = i18ndude
 
 [instance]
-debug-mode = on
-verbose-security = on
 #event-log-level = DEBUG
 zope-conf-additional =
     http-realm Desenv
@@ -48,7 +39,6 @@ recipe = zc.recipe.testrunner
 eggs =
     Pillow
 #    my.package.here [test]
-    
 defaults = ['--exit-with-status', '--auto-color', '--auto-progress']
 
 [zopepy]

@@ -32,3 +32,9 @@ initialization =
     bin = '\${buildout:directory}/bin'
     exclude = '--omit=' + ','.join([eggs,sys.prefix, bin])
     sys.argv = sys.argv[:] + ['xml', '-i', exclude]
+
+[potcompile]
+recipe = plone.recipe.command
+update-command = ${potcompile:command}
+command =
+    for file in `find ${buildout:eggs-directory} ${buildout:directory}/src -type f -name "*.po" -regex ".*\/pt_BR\/*.po"`; do msgfmt -o `echo $file | sed s/\.po/\.mo/` $file ; done

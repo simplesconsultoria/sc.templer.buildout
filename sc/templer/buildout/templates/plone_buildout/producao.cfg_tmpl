@@ -15,9 +15,10 @@ parts +=
     supervisor
     supervisor-cron
 
-overwrite-picked-versions-file = true
+eggs +=
+    munin.zope
+    iw.rotatezlogs
 
-develop =
 
 [users]
 os = plone
@@ -28,24 +29,77 @@ eggs = ZopeHealthWatcher
 scripts = zope_health_watcher
 
 [instance]
-recipe = plone.recipe.zope2instance
 http-address = \${hosts:instance}:\${ports:instance}
 zodb-cache-size = 55000
 debug-mode = off
+verbose-security = off
 zserver-threads = 2
 zeo-client = true
 zeo-address = \${zeoserver:zeo-address}
-blob-storage = \${zeoserver:blob-storage}
 shared-blob = on
-effective-user = \${users:os}
+event-log-custom =
+    %import iw.rotatezlogs
+    <rotatelogfile>
+        path \${buildout:directory}/var/log/instance.log
+        max-bytes 5mb
+        backup-count 5
+    </rotatelogfile>
+access-log-custom =
+    %import iw.rotatezlogs
+    <rotatelogfile>
+        path \${buildout:directory}/var/log/instance-Z2.log
+        max-bytes 5mb
+        backup-count 5
+    </rotatelogfile>
+zodb-temporary-storage =
+     <zodb_db temporary>
+         mount-point /temp_folder
+         cache-size 10000
+         container-class Products.TemporaryFolder.TemporaryContainer
+         <zeoclient>
+           server \${zeoserver:zeo-address}
+           storage temp
+           name zeostorage
+           var \${buildout:directory}/var/filestorage
+           cache-size 100MB
+         </zeoclient>
+     </zodb_db>
 
 [instance1]
 <=instance
 port-base = 1
+event-log-custom =
+    %import iw.rotatezlogs
+    <rotatelogfile>
+        path \${buildout:directory}/var/log/instance1.log
+        max-bytes 5mb
+        backup-count 5
+    </rotatelogfile>
+access-log-custom =
+    %import iw.rotatezlogs
+    <rotatelogfile>
+        path \${buildout:directory}/var/log/instance1-Z2.log
+        max-bytes 5mb
+        backup-count 5
+    </rotatelogfile>
 
 [instance2]
 <=instance
 port-base = 2
+event-log-custom =
+    %import iw.rotatezlogs
+    <rotatelogfile>
+        path \${buildout:directory}/var/log/instance2.log
+        max-bytes 5mb
+        backup-count 5
+    </rotatelogfile>
+access-log-custom =
+    %import iw.rotatezlogs
+    <rotatelogfile>
+        path \${buildout:directory}/var/log/instance2-Z2.log
+        max-bytes 5mb
+        backup-count 5
+    </rotatelogfile>
 
 [supervisor]
 recipe = collective.recipe.supervisor
@@ -77,6 +131,21 @@ zeo-address = \${hosts:zeoserver}:\${ports:zeoserver}
 monitor-address =  \${hosts:zeoserver}:\${ports:zeoserver-monitor}
 blob-storage = var/blobstorage
 eggs = plone.app.blob
+
+
+[zeoserver]
+recipe = plone.recipe.zeoserver
+zeo-address = \${hosts:zeoserver}:\${ports:zeoserver}
+server_status =  \${hosts:zeoserver}:\${ports:zeoserver-monitor}
+blob-storage = \${buildout:directory}/var/blobstorage
+eggs = Zope2
+       plone.app.blob
+       temporarystorage
+zeo-conf-additional =
+     %import tempstorage
+     <temporarystorage temp>
+         name temporary storage for sessioning
+     </temporarystorage>
 
 [backup]
 recipe = collective.recipe.backup

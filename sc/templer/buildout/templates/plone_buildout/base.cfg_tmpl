@@ -1,14 +1,19 @@
 [buildout]
 parts =
+    lxml
     instance
+    fixencode
     zopepy
-
-unzip = true
 
 extends =
     http://dist.plone.org/release/${plone_version}/versions.cfg
+    http://good-py.appspot.com/release/dexterity/1.2?plone=${plone_version}&plone.app.theming=1.0b9
 
+relative-paths = true
 versions = versions
+unzip = true
+extensions =
+    buildout.threatlevel
 
 
 find-links =
@@ -17,6 +22,7 @@ find-links =
     http://dist.plone.org/thirdparty
 
 eggs =
+    elementtree
     Pillow
     Plone
 #   my.package.here
@@ -25,13 +31,15 @@ develop =
 
 zcml =
 
+[versions]
+
 [instance]
 recipe = plone.recipe.zope2instance
 user = admin:admin
 http-address = 8080
-#debug-mode = on
-#verbose-security = on
-blob-storage = var/blobstorage
+debug-mode = on
+verbose-security = on
+blob-storage = \${buildout:directory}var/blobstorage
 environment-vars =
     PYTHON_EGG_CACHE \${buildout:directory}/var/.python-eggs
     zope_i18n_compile_mo_files true
@@ -39,15 +47,29 @@ environment-vars =
     TEMP \${buildout:directory}/var/tmp
     PTS_LANGUAGES en, pt-br, es
 eggs =
-    Zope2
     \${buildout:eggs}
 
 zcml =
     \${buildout:zcml}
 
+[lxml]
+recipe = z3c.recipe.staticlxml
+egg = lxml
+libxml2-url = ftp://xmlsoft.org/libxml2/libxml2-2.7.8.tar.gz
+libxslt-url = ftp://xmlsoft.org/libxml2/libxslt-1.1.26.tar.gz
 
 [zopepy]
 recipe = zc.recipe.egg
 eggs = \${instance:eggs}
 interpreter = zopepy
 scripts = zopepy
+
+[fixencode]
+recipe = plone.recipe.command
+update-command = \${fixencode:command}
+command =
+    chmod 600 .installed.cfg
+    cat > \${buildout:directory}/bin/sitecustomize.py << EOF
+    import sys
+    sys.setdefaultencoding('utf-8')
+    EOF
