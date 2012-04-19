@@ -90,6 +90,9 @@ Starting the instance::
     $ ./bin/zeoserver start
     $ ./bin/instance start
 
+Or::
+
+    $ ./bin/supervisord
 
 Updating the environment::
 
