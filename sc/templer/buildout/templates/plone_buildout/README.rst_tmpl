@@ -1,0 +1,104 @@
+${project}
+==============================
+
+.. contents:: Table of Contents
+   :depth: 2
+
+
+Overview
+--------
+
+`Buildout <http://www.buildout.org>`_ is a tool which automatically downloads, installs and configures Python software.
+Plone developers prefer uses buildout based installation method - it makes it easy to work with source code and developing your own Plone add-ons.
+
+For production site installations please use `standard Plone installer <http://plone.org/download>`_.
+
+
+Requirements
+------------
+
+What you need in order to use developer buildout with Plone ${plone_version}
+
+* Experience using command line tools
+
+* Experience using a text editor to work with configuration files (``buildout.cfg``)
+
+* GCC compiler suite to build native Python extensions (Zope contains C code for optimized parts)
+
+* Python 2.6 http://www.python.org (other versions are *not* ok for Plone ${plone_version})
+
+* Python Imaging Library installed for your Python interpreter (more below)
+
+* Python `Distribute <http://pypi.python.org/pypi/distribute>`_ installation tool, provided by your operating system
+  or installed by hand
+
+Read below from operating system specific instructions how to install these dependencies.
+
+
+Features
+--------
+
+This buildout provides
+
+*  Zope start up scripts
+
+* `test <http://plone.org/documentation/manual/plone-community-developer-documentation/testing-and-debugging/unit-testing>`_ command for running automatic test suites 
+
+* `i18ndude <http://pypi.python.org/pypi/i18ndude>`_  for managing text string translations in Python source code 
+
+* `omelette <http://pypi.python.org/pypi/collective.recipe.omelette>`_ buildout recipe which makes Python egg source code more browseable by using symlinks
+
+* `mr.developer <http://pypi.python.org/pypi/mr.developer>`_ command for managing source code checkouts and updates with buildout repeatable manner
+
+* Various buildout file, used for production, migrations, tests and deployments.
+
+
+Clone and installation
+-----------------------
+
+**Ubuntu/Debian** Install prerequisitements::
+
+    $ sudo aptitude build-dep python2.6 python-imaging 
+
+    $ sudo apt-get install python2.6 python-imaging wget build-essential \
+      python2.6-dev python-setuptools liblcms1 liblcms1-dev libfreetype6 \
+      libfreetype6-dev mime-support bzip2 libncurses5 libncurses5-dev lynx \
+      wv ppthtml poppler-utils unzip pdftohtml libexpat1 automake autoconf \
+      autotools-dev gettext html2text intltool-debian libssl-dev tcl8.5 \
+      tcl8.5-dev zlib1g-dev patchutils curl zlibc zlib-bin tklib libjpeg-dev \
+      libjpeg-progs libjpeg62-dev python-virtualenv
+
+
+In production::
+
+    $ git clone git@bitbucket.org:simplesconsultoria/${project}.git
+    $ python2.6 bootstrap.py -c producao.cfg
+    $ ./bin/buildout -Nv -t 30 -c producao.cfg
+
+
+In deployment::
+
+    $ git clone git@bitbucket.org:simplesconsultoria/${project}.git
+    $ python2.6 bootstrap.py -c desenvolvimeto.cfg
+    $ ./bin/buildout -Nv -t 30 -c desenvolvimento.cfg
+    $ ./bin/develop co ""
+    $ ./bin/buildout -Nv -t 30 -c desenvolvimento.cfg
+
+
+Starting the instance::
+
+    $ ./bin/zeoserver start
+    $ ./bin/instance start
+
+
+Updating the environment::
+
+    $ ./bin/develop up "" && ./bin/instance restart
+
+
+Tips
+----
+
+* Github tutorials
+
+    * http://learn.github.com/p/intro.html
