@@ -3,11 +3,12 @@ parts =
     lxml
     instance
     fixencode
+    mo_precompile
     zopepy
 
 extends =
     http://dist.plone.org/release/${plone_version}/versions.cfg
-    http://good-py.appspot.com/release/dexterity/1.2?plone=${plone_version}&plone.app.theming=1.0b9
+    http://good-py.appspot.com/release/dexterity/1.2.1?plone=${plone_version}&plone.app.theming=1.0b9
 
 relative-paths = true
 versions = versions
@@ -63,6 +64,18 @@ recipe = zc.recipe.egg
 eggs = \${instance:eggs}
 interpreter = zopepy
 scripts = zopepy
+
+[mo_precompile]
+recipe = plone.recipe.precompiler
+eggs = \${buildout:eggs}
+compile-mo-files = true
+skip =
+    tests
+    skins
+    doc
+    kupu_plone_layer
+    .svn
+rx = /\.
 
 [fixencode]
 recipe = plone.recipe.command
